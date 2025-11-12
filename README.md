@@ -38,3 +38,4 @@ AI-powered nutrition tracker that analyzes food images using Google's Gemini API
 - 💾 Food history tracking
 - 🎯 Daily nutrition goals
 - 🔄 Dual API key support for reliability
+
