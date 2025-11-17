@@ -56,6 +56,18 @@ const isRetryableError = (error: unknown): boolean => {
     return false;
 };
 
+const isTemporaryServiceError = (error: unknown): boolean => {
+    if (error instanceof Error) {
+        const message = error.message.toLowerCase();
+        // Check for service overload / temporary unavailability
+        return message.includes('503') || 
+               message.includes('service unavailable') || 
+               message.includes('overloaded') ||
+               message.includes('temporarily unavailable');
+    }
+    return false;
+};
+
 const analyzeWithKey = async (apiKey: string, base64Image: string): Promise<NutritionInfo> => {
     const ai = new GoogleGenAI({ apiKey });
     
@@ -106,6 +118,9 @@ export const analyzeFoodImage = async (base64Image: string): Promise<NutritionIn
             } catch (error) {
                 lastError = error instanceof Error ? error : new Error(String(error));
                 
+                // Check if it's a temporary service issue
+                const isTemporary = isTemporaryServiceError(error);
+                
                 // If error is not retryable, try next key
                 if (!isRetryableError(error)) {
                     console.warn(`API key ${keyIndex + 1} failed (non-retryable error), trying next key...`, error);
@@ -127,5 +142,11 @@ export const analyzeFoodImage = async (base64Image: string): Promise<NutritionIn
     }
     
     console.error("All API keys exhausted:", lastError);
+    
+    // Provide user-friendly error message
+    if (isTemporaryServiceError(lastError)) {
+        throw new Error("The AI service is currently overloaded. Please wait a moment and try again. The service usually recovers within a few minutes.");
+    }
+    
     throw new Error("Failed to analyze image with all available API keys. Please try again later.");
 };

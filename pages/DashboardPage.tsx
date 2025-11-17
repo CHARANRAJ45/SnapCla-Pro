@@ -18,6 +18,7 @@ const DashboardPage: React.FC = () => {
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [analysisResult, setAnalysisResult] = useState<{ nutrition: NutritionInfo, image: string } | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [lastCapturedImage, setLastCapturedImage] = useState<string | null>(null); // Store for retry
 
     const fetchLogs = useCallback(async () => {
         setIsLoadingLogs(true);
@@ -40,12 +41,29 @@ const DashboardPage: React.FC = () => {
         setIsAnalyzing(true);
         setError(null);
         setAnalysisResult(null);
+        setLastCapturedImage(imageDataUrl); // Store for retry
         try {
             const base64Image = imageDataUrl.split(',')[1];
             const result = await analyzeFoodImage(base64Image);
             setAnalysisResult({ nutrition: result, image: imageDataUrl });
         } catch (err: any) {
             setError(err.message || "Failed to analyze image.");
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const handleRetryAnalysis = async () => {
+        if (!lastCapturedImage) return;
+        setIsAnalyzing(true);
+        setError(null);
+        setAnalysisResult(null);
+        try {
+            const base64Image = lastCapturedImage.split(',')[1];
+            const result = await analyzeFoodImage(base64Image);
+            setAnalysisResult({ nutrition: result, image: lastCapturedImage });
+        } catch (err: any) {
+            setError(err.message || "Failed to analyze image. Please try again later.");
         } finally {
             setIsAnalyzing(false);
         }
@@ -77,7 +95,17 @@ const DashboardPage: React.FC = () => {
             </div>
 
             {isAnalyzing && <div className="flex flex-col items-center justify-center p-8 bg-white rounded-xl shadow-md"><Spinner /><p className="mt-2 text-gray-600">AI is analyzing your meal...</p></div>}
-            {error && <div className="p-4 text-center text-red-700 bg-red-100 rounded-lg">{error}</div>}
+            {error && (
+                <div className="p-4 text-center bg-red-100 rounded-lg">
+                    <p className="text-red-700 mb-3">{error}</p>
+                    {lastCapturedImage && (
+                        <Button onClick={handleRetryAnalysis} size="medium">
+                            <ion-icon name="refresh" className="mr-2"></ion-icon>
+                            Retry Analysis
+                        </Button>
+                    )}
+                </div>
+            )}
             
             {analysisResult && (
                 <NutritionResult
